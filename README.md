@@ -23,8 +23,17 @@ Zum Erstellen der Mischer (Kurve) wird eine LUA Skript verwendet. (im Ordner LUA
 # Beschreibung
 
 
-
 # Schaltplan
-
+Positive Schaltend IC1 = UDN2981A
+![](https://github.com/Ziege-One/ESP32-SBus-Switch/blob/main/docs/ESP32_SBUS-Switch_+_sch.png?raw=true)
+Negative Schaltend IC1 = ULN2803
+![](https://github.com/Ziege-One/ESP32-SBus-Switch/blob/main/docs/ESP32_SBUS-Switch_-_sch.png?raw=true)
 
 # Bilder
+![](https://github.com/Ziege-One/ESP32-SBus-Switch/blob/main/docs/ESP32%20SBUS-Switch_F360.png?raw=true)
+
+# Video
+Teil 1
+[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/-PHlG2yzvQ4/0.jpg)](https://www.youtube.com/watch?v=-PHlG2yzvQ4)
+Teil 2
+[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/tFa6pBXM2Os/0.jpg)](https://www.youtube.com/watch?v=tFa6pBXM2Os)
