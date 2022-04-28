@@ -120,21 +120,21 @@ void loop() {
   if (sbus_rx.Read()) {
       sbus_data = sbus_rx.ch();
       if (sbus_rx.failsafe()) {   // bei Failsafe Ausgange ausschalten
-         encodeFunction(sbus_data[0]);
+         Output(0);
       }
       else
       {
         encodeFunction(sbus_data[sbus_channel]);
-      }
     
-      Serial.print("Kanal");
-      Serial.print(sbus_channel + 1); 
-      Serial.print(" : "); 
-      Serial.print(sbus_data[sbus_channel]);
-      Serial.print(" : Output ");
-      Serial.print(Data);
+        Serial.print("Kanal");
+        Serial.print(sbus_channel + 1); 
+        Serial.print(" : "); 
+        Serial.print(sbus_data[sbus_channel]);
+        Serial.print(" : Output ");
+        Serial.print(Data);
       
-      Output(Data);
+        Output(Data);
+      }
   }
   
   if (client) {                             // Wenn sich ein neuer Client verbindet,
