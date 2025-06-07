@@ -22,7 +22,7 @@
 // ======== ESP32-SBus-Switch  =======================================
 
 /* Boardversion
-ESP32 3.1.1
+ESP32 3.2.0
  */
 
 /* Installierte Bibliotheken
@@ -33,38 +33,39 @@ Bolder Flight Systems SBUS  8.1.4
 #include <WiFi.h>
 #include <EEPROM.h>
 
-const float Version = 0.4; // Software Version
+const float Version = 0.5; // Software Version
 
 // EEprom
 
-#define EEPROM_SIZE 110
+#define EEPROM_SIZE 114
 
-#define adr_eprom_sbus_channel_einkanal  0   // sbus_channel_einkanal
-#define adr_eprom_sbus_channel_einkanal_mode          4   // sbus_channel_einkanal_mode
-#define adr_eprom_Ausgang_0     8   // Ausgang 1 Kanal
-#define adr_eprom_Ausgang_1     12  // Ausgang 2 Kanal
-#define adr_eprom_Ausgang_2     16  // Ausgang 3 Kanal
-#define adr_eprom_Ausgang_3     20  // Ausgang 4 Kanal
-#define adr_eprom_Ausgang_4     24  // Ausgang 5 Kanal
-#define adr_eprom_Ausgang_5     28  // Ausgang 6 Kanal
-#define adr_eprom_Ausgang_6     32  // Ausgang 7 Kanal
-#define adr_eprom_Ausgang_7     36  // Ausgang 8 Kanal
-#define adr_eprom_PWM_0         40  // PWM Wert Ausgang 1
-#define adr_eprom_PWM_1         44  // PWM Wert Ausgang 2
-#define adr_eprom_PWM_2         48  // PWM Wert Ausgang 3
-#define adr_eprom_PWM_3         52  // PWM Wert Ausgang 4
-#define adr_eprom_PWM_4         56  // PWM Wert Ausgang 5
-#define adr_eprom_PWM_5         60  // PWM Wert Ausgang 6
-#define adr_eprom_PWM_6         64  // PWM Wert Ausgang 7
-#define adr_eprom_PWM_7         68  // PWM Wert Ausgang 8
-#define adr_eprom_Mode_0        72  // Mode Ausgang 1
-#define adr_eprom_Mode_1        76  // Mode Ausgang 2
-#define adr_eprom_Mode_2        80  // Mode Ausgang 3
-#define adr_eprom_Mode_3        84  // Mode Ausgang 4
-#define adr_eprom_Mode_4        88  // Mode Ausgang 5
-#define adr_eprom_Mode_5        92  // Mode Ausgang 6
-#define adr_eprom_Mode_6        96  // Mode Ausgang 7
-#define adr_eprom_Mode_7        100  // Mode Ausgang 8
+#define adr_eprom_RC_System     0   // RC_System Elrs Flysky ...
+#define adr_eprom_SBUS_Channel  4   // SBUS_Channel
+#define adr_eprom_einkanal_mode 8   // Einkanal Mode
+#define adr_eprom_Ausgang_0     12   // Ausgang 1 Kanal
+#define adr_eprom_Ausgang_1     16  // Ausgang 2 Kanal
+#define adr_eprom_Ausgang_2     20  // Ausgang 3 Kanal
+#define adr_eprom_Ausgang_3     24  // Ausgang 4 Kanal
+#define adr_eprom_Ausgang_4     28  // Ausgang 5 Kanal
+#define adr_eprom_Ausgang_5     32  // Ausgang 6 Kanal
+#define adr_eprom_Ausgang_6     36  // Ausgang 7 Kanal
+#define adr_eprom_Ausgang_7     40  // Ausgang 8 Kanal
+#define adr_eprom_PWM_0         44  // PWM Wert Ausgang 1
+#define adr_eprom_PWM_1         48  // PWM Wert Ausgang 2
+#define adr_eprom_PWM_2         52  // PWM Wert Ausgang 3
+#define adr_eprom_PWM_3         56  // PWM Wert Ausgang 4
+#define adr_eprom_PWM_4         60  // PWM Wert Ausgang 5
+#define adr_eprom_PWM_5         64  // PWM Wert Ausgang 6
+#define adr_eprom_PWM_6         68  // PWM Wert Ausgang 7
+#define adr_eprom_PWM_7         72  // PWM Wert Ausgang 8
+#define adr_eprom_Mode_0        76  // Mode Ausgang 1
+#define adr_eprom_Mode_1        80  // Mode Ausgang 2
+#define adr_eprom_Mode_2        84  // Mode Ausgang 3
+#define adr_eprom_Mode_3        88  // Mode Ausgang 4
+#define adr_eprom_Mode_4        92  // Mode Ausgang 5
+#define adr_eprom_Mode_5        96  // Mode Ausgang 6
+#define adr_eprom_Mode_6        100  // Mode Ausgang 7
+#define adr_eprom_Mode_7        104  // Mode Ausgang 8
 
 
 // PWM
@@ -85,10 +86,11 @@ bfs::SbusRx sbus_rx(&Serial2,16, 17,true); // Sbus auf Serial2
 
 bfs::SbusData sbus_data;
 
-int sbus_channel_einkanal = 4; // Kanal 5 default
+int SBUS_Channel = 4; // Kanal 5 default
 uint16_t Data;        // Daten für die Ausgänge
 long Data2;
 float Data3;
+uint16_t Data4 = 0;  // Speicher WM
 volatile int x = 0;
 
 //Wifi
@@ -96,7 +98,8 @@ const char* ssid     = "ESP32-SBUS-Switch";
 const char* password = "123456789";
 
 //Rest
-int sbus_channel_einkanal_mode = 0;
+int einkanal_mode = 0;
+int RC_System = 0;
 volatile unsigned char WifiPin = 13;
 volatile unsigned char LedPin = 2;
 
@@ -181,7 +184,7 @@ void loop() {
       }
       else
       {
-        encodeFunction(sbus_data.ch[sbus_channel_einkanal]);      
+        encodeFunction(sbus_data.ch[SBUS_Channel]);      
         Output(Data);
       }
   }
@@ -191,36 +194,101 @@ void loop() {
 // ======== encodeFunction  =======================================
 void encodeFunction(uint16_t channel) {
     Data = channel;
-  if (sbus_channel_einkanal_mode == 0) {
-    Data = Data  / 8;
-    Data = Data; 
+
+  if (einkanal_mode == 0) 
+  { 
+
+    if (RC_System == 0) {
+      Data = Data  / 8;
+      Data = Data; 
+    }
+
+    if (RC_System == 1) {    
+      if (Data < 206) { Data = 206;}
+     if (Data > 1837) { Data= 1837;}
+     Data = Data - 206 ;
+     Data = (Data * 10);
+     Data = Data + 20;  
+     Data = Data  / 8;
+     Data = Data  / 8;
+    } 
+  
+    if (RC_System == 2) {
+      Data3 = Data - 172;
+      Data3 = Data3 + 1.5;
+      Data3 = Data3 * 0.155677655677655;
+      Data2 = Data3;
+      Data = Data2;
+    }
   }
 
-  if (sbus_channel_einkanal_mode == 1) {    
-    if (Data < 206) { Data = 206;}
-    if (Data > 1837) { Data= 1837;}
-    Data = Data - 206 ;
-    Data = (Data * 10);
-    Data = Data + 20;  
-    Data = Data  / 8;
-    Data = Data  / 8;
-  } 
-  
-  if (sbus_channel_einkanal_mode == 2) {
-    Data3 = Data - 172;
-    Data3 = Data3 + 1.5;
-    Data3 = Data3 * 0.155677655677655;
-    Data2 = Data3;
-    Data = Data2;
+  if (einkanal_mode > 9) 
+  {
+    uint16_t n;
+    uint8_t  v;
+    if (RC_System == 0) //FrSky
+    {
+      n = (channel >= 172) ? (channel - 172 + 1)  : 0;
+      v = (n >> 4);
+    }
+    if (RC_System == 1) //FlySky
+    {
+      n = (channel >= 220) ? (channel - 220) : 0;
+      uint16_t n2 = n + (n >> 6);
+      v = (n2 >> 4);
+    }
+    if (RC_System == 2) //ELRS
+    {
+      n = (channel >= 172) ? (channel - 172)  : 0;
+      v = (n >> 4);
+    }    
+    if (RC_System == 3) //Hott
+    {
+      n = (channel >= 205) ? (channel - 205)  : 0;
+      v = (n >> 4);
+    }    
+    //uint16_t n = (channel >= 220) ? (channel - 220) : 0;
+    //uint8_t  v = (n >> 4);
+    uint8_t address = (v >> 4) & 0b11;
+    uint8_t sw      = (v >> 1) & 0b111;
+    uint8_t state   = v & 0b1;
+
+    if (address == (einkanal_mode - 10))
+    {
+      bitWrite(Data4, sw, state);
+      Data = Data4;
+    }
+    else
+    {
+      Data = 0;
+    }
+  /* 
+  Serial.print("WM: ");
+  Serial.print(SBUS_Channel + 1); 
+  Serial.print(" : "); 
+  Serial.print(sbus_data.ch[SBUS_Channel]);
+  Serial.print(" : N ");
+  Serial.print(n);
+  Serial.print(" : V ");
+  Serial.print(v);
+  Serial.print(" : Adress ");
+  Serial.print(address);
+  Serial.print(" : sw ");
+  Serial.print(sw);
+  Serial.print(" : state ");
+  Serial.print(state);
+  Serial.println(".");
+  */
   }
+ 
 }
 
 // ======== Output  =======================================
 void Output(uint16_t Data) {
   for(x = 0; x <=7; x++)
   {
-    Serial.print("Ausgang_Kanal :");
-    Serial.print(Ausgang_Kanal[x]); 
+    //Serial.print("Ausgang_Kanal :");
+    //Serial.print(Ausgang_Kanal[x]); 
     if (Ausgang_Kanal[x] < 20)  //Einzelkanal 
     {
       if (bitRead (Data ,(Ausgang_Kanal[x]))) // Abfrage für Ausgang
@@ -301,8 +369,9 @@ void Output(uint16_t Data) {
 
 // ======== Werkseinstellungen  =======================================
 void Reset_all() {
-  sbus_channel_einkanal = 4;
-  sbus_channel_einkanal_mode = 0;
+  RC_System = 0;
+  SBUS_Channel = 4;
+  einkanal_mode = 0;
   for(x = 0; x <=7; x++)
   {
     mode[x] = 0;
@@ -314,9 +383,9 @@ void Reset_all() {
 // ======== Debug  =======================================
 void Debug_out() {
   Serial.print("Einzelkanal");
-  Serial.print(sbus_channel_einkanal + 1); 
+  Serial.print(SBUS_Channel + 1); 
   Serial.print(" : "); 
-  Serial.print(sbus_data.ch[sbus_channel_einkanal]);
+  Serial.print(sbus_data.ch[SBUS_Channel]);
   Serial.print(" : Output ");
   Serial.print(Data);
   Serial.println(".");
@@ -324,8 +393,9 @@ void Debug_out() {
 
 // ======== EEprom  =======================================
 void EEprom_Load() {
-  sbus_channel_einkanal = EEPROM.read(adr_eprom_sbus_channel_einkanal);
-  sbus_channel_einkanal_mode = EEPROM.read(adr_eprom_sbus_channel_einkanal_mode);
+  RC_System = EEPROM.read(adr_eprom_RC_System);  
+  SBUS_Channel = EEPROM.read(adr_eprom_SBUS_Channel);
+  einkanal_mode = EEPROM.read(adr_eprom_einkanal_mode);
   Ausgang_Kanal[0] = EEPROM.readInt(adr_eprom_Ausgang_0);
   Ausgang_Kanal[1] = EEPROM.readInt(adr_eprom_Ausgang_1);
   Ausgang_Kanal[2] = EEPROM.readInt(adr_eprom_Ausgang_2);
@@ -353,8 +423,9 @@ void EEprom_Load() {
   Serial.println("EEPROM gelesen.");
 }
 void EEprom_Save() {
-  EEPROM.writeInt(adr_eprom_sbus_channel_einkanal, sbus_channel_einkanal);
-  EEPROM.writeInt(adr_eprom_sbus_channel_einkanal_mode, sbus_channel_einkanal_mode);
+  EEPROM.writeInt(adr_eprom_RC_System, RC_System);
+  EEPROM.writeInt(adr_eprom_SBUS_Channel, SBUS_Channel);
+  EEPROM.writeInt(adr_eprom_einkanal_mode, einkanal_mode);
   EEPROM.writeInt(adr_eprom_Ausgang_0, Ausgang_Kanal[0]);
   EEPROM.writeInt(adr_eprom_Ausgang_1, Ausgang_Kanal[1]);
   EEPROM.writeInt(adr_eprom_Ausgang_2, Ausgang_Kanal[2]);
@@ -433,18 +504,25 @@ void Webpage()
               pwm_wert[Menu-1] = (valueString.toInt());
             }            
 
-            if(header.indexOf("GET /?SbuschannelEinkanal=")>=0) { // Abfrage Sbus Kanal für Einkanal
+            if(header.indexOf("GET /?RCSytem=")>=0) { // Abfrage RC-Sytem
               pos1 = header.indexOf('=');
               pos2 = header.indexOf('&');
               valueString = header.substring(pos1+1, pos2);
-              sbus_channel_einkanal = (valueString.toInt());
+              RC_System = (valueString.toInt());
             }
 
-            if(header.indexOf("GET /?KompatibilitaetsMode=")>=0) { // Abfrage KompatibilitaetsMode
+            if(header.indexOf("GET /?SBUSChannel=")>=0) { // Abfrage SBUS-Channel
               pos1 = header.indexOf('=');
               pos2 = header.indexOf('&');
               valueString = header.substring(pos1+1, pos2);
-              sbus_channel_einkanal_mode = (valueString.toInt());
+              SBUS_Channel = (valueString.toInt());
+            }
+
+            if(header.indexOf("GET /?EinkanalMode=")>=0) { // Abfrage Einkanal-Mode
+              pos1 = header.indexOf('=');
+              pos2 = header.indexOf('&');
+              valueString = header.substring(pos1+1, pos2);
+              einkanal_mode = (valueString.toInt());
             }  
             
             if (header.indexOf("GET /save") >= 0) {  // Abfrage Button Save
@@ -522,9 +600,10 @@ void Webpage()
             client.println("<br />");
             client.println("<br />"); 
 
-            client.println("<p class=\"text2\" >Einkanal</p>");
+            // SBUS Kanal; id= SBUSChannel; script= setsbuschannel(); value= SBUS_Channel;
+            client.println("<p class=\"text2\" >SBUS Kanal</p>");
 
-            client.println("<p><select id=\"SbuschannelEinkanal\" class=\"buttonA\" onchange=\"setsbuschanneleinkanal()\">");
+            client.println("<p><select id=\"SBUSChannel\" class=\"buttonA\" onchange=\"setsbuschannel()\">");
             client.println("<optgroup label=\"SBUS Kanal\">");
       	    client.println("<option value=\"0\">SBUS Kanal 01</option>");
             client.println("<option value=\"1\">SBUS Kanal 02</option>");
@@ -545,46 +624,78 @@ void Webpage()
             client.println("</optgroup>");
             client.println("</select><br></p>");
 
-            client.println("<script> function setsbuschanneleinkanal() { ");
-            client.println("var sel = document.getElementById(\"SbuschannelEinkanal\");");
+            client.println("<script> function setsbuschannel() { ");
+            client.println("var sel = document.getElementById(\"SBUSChannel\");");
             client.println("var opt = sel.options[sel.selectedIndex];");
             client.println("var val = opt.value;");
             client.println("var xhr = new XMLHttpRequest();");
-            client.println("xhr.open('GET', \"/?SbuschannelEinkanal=\" + val + \"&\", true);");
+            client.println("xhr.open('GET', \"/?SBUSChannel=\" + val + \"&\", true);");
             client.println("xhr.send(); } </script>");
 
-            valueString = String(sbus_channel_einkanal, DEC);
+            valueString = String(SBUS_Channel, DEC);
 
             client.println("<script> ");
             client.println("var selectedOption =" + valueString + ";");
-            client.println("var selectElement = document.getElementById(\"SbuschannelEinkanal\");");
+            client.println("var selectElement = document.getElementById(\"SBUSChannel\");");
             client.println("for (var i = 0; i < selectElement.options.length; i++) {");
             client.println("var option = selectElement.options[i];");
             client.println("if (option.value == selectedOption) {");
             client.println("option.selected = true;");
             client.println("break; }  } </script>");
 
-            client.println("<p class=\"text2\" >Kompatibilitaets-Mode</p>");
+            // RC-Sytem; id= RCSytem; script= setrcsytem(); value= RC_System;
+            client.println("<p class=\"text2\" >RC-Sytem</p>");
 
-            client.println("<p><select id=\"KompatibilitaetsMode\" class=\"buttonA\" onchange=\"setkompatibilitaetsmode()\">");
-      	    client.println("<option value=\"0\">Normal</option>");
+            client.println("<p><select id=\"RCSytem\" class=\"buttonA\" onchange=\"setrcsytem()\">");
+      	    client.println("<option value=\"0\">FrSky</option>");
             client.println("<option value=\"1\">FlySky</option>");
             client.println("<option value=\"2\">ELRS</option>");
+            client.println("<option value=\"3\">Hott</option>");            
             client.println("</select><br></p>");
 
-            client.println("<script> function setkompatibilitaetsmode() { ");
-            client.println("var sel = document.getElementById(\"KompatibilitaetsMode\");");
+            client.println("<script> function setrcsytem() { ");
+            client.println("var sel = document.getElementById(\"RCSytem\");");
             client.println("var opt = sel.options[sel.selectedIndex];");
             client.println("var val = opt.value;");
             client.println("var xhr = new XMLHttpRequest();");
-            client.println("xhr.open('GET', \"/?KompatibilitaetsMode=\" + val + \"&\", true);");
+            client.println("xhr.open('GET', \"/?RCSytem=\" + val + \"&\", true);");
             client.println("xhr.send(); } </script>");
 
-            valueString = String(sbus_channel_einkanal_mode, DEC);
+            valueString = String(RC_System, DEC);
 
             client.println("<script> ");
             client.println("var selectedOption =" + valueString + ";");
-            client.println("var selectElement = document.getElementById(\"KompatibilitaetsMode\");");
+            client.println("var selectElement = document.getElementById(\"RCSytem\");");
+            client.println("for (var i = 0; i < selectElement.options.length; i++) {");
+            client.println("var option = selectElement.options[i];");
+            client.println("if (option.value == selectedOption) {");
+            client.println("option.selected = true;");
+            client.println("break; }  } </script>");
+
+            // Einkanal-Mode; id= EinkanalMode; script= seteinkanalmode(); value= einkanal_mode;
+            client.println("<p class=\"text2\" >Einkanal-Mode</p>");
+
+            client.println("<p><select id=\"EinkanalMode\" class=\"buttonA\" onchange=\"seteinkanalmode()\">");
+      	    client.println("<option value=\"0\">Normal</option>");
+            client.println("<option value=\"10\">SBUS WM Adr 0</option>");
+            client.println("<option value=\"11\">SBUS WM Adr 1</option>");
+            client.println("<option value=\"12\">SBUS WM Adr 2</option>");         
+            client.println("<option value=\"13\">SBUS WM Adr 3</option>");    
+            client.println("</select><br></p>");
+
+            client.println("<script> function seteinkanalmode() { ");
+            client.println("var sel = document.getElementById(\"EinkanalMode\");");
+            client.println("var opt = sel.options[sel.selectedIndex];");
+            client.println("var val = opt.value;");
+            client.println("var xhr = new XMLHttpRequest();");
+            client.println("xhr.open('GET', \"/?EinkanalMode=\" + val + \"&\", true);");
+            client.println("xhr.send(); } </script>");
+
+            valueString = String(einkanal_mode, DEC);
+
+            client.println("<script> ");
+            client.println("var selectedOption =" + valueString + ";");
+            client.println("var selectElement = document.getElementById(\"EinkanalMode\");");
             client.println("for (var i = 0; i < selectElement.options.length; i++) {");
             client.println("var option = selectElement.options[i];");
             client.println("if (option.value == selectedOption) {");
@@ -817,7 +928,7 @@ void Webpage()
             // SBUS Kanal 1 bis 8 Ausgeben
             client.println("<div class=\"left\" >");
             valueString = String(sbus_data.ch[0], DEC);
-            client.println("<p> SUBS K1: " + valueString);        
+            client.println("<p><br> SUBS K1: " + valueString);        
             valueString = String(sbus_data.ch[1], DEC);
             client.println("<br> SUBS K2: " + valueString);
             valueString = String(sbus_data.ch[2], DEC);
@@ -831,13 +942,31 @@ void Webpage()
             valueString = String(sbus_data.ch[6], DEC);
             client.println("<br> SUBS K7: " + valueString);
             valueString = String(sbus_data.ch[7], DEC);
-            client.println("<br> SUBS K8: " + valueString + "</p> <hr>");
+            client.println("<br> SUBS K8: " + valueString);
+            valueString = String(sbus_data.ch[8], DEC);
+            client.println("<br> SUBS K9: " + valueString);
+            valueString = String(sbus_data.ch[9], DEC);
+            client.println("<br> SUBS K10: " + valueString);
+            valueString = String(sbus_data.ch[10], DEC);
+            client.println("<br> SUBS K11: " + valueString);
+            valueString = String(sbus_data.ch[11], DEC);
+            client.println("<br> SUBS K12: " + valueString);
+            valueString = String(sbus_data.ch[12], DEC);
+            client.println("<br> SUBS K13: " + valueString);
+            valueString = String(sbus_data.ch[13], DEC);
+            client.println("<br> SUBS K14: " + valueString);
+            valueString = String(sbus_data.ch[14], DEC);
+            client.println("<br> SUBS K15: " + valueString);
+            valueString = String(sbus_data.ch[15], DEC);
+            client.println("<br> SUBS K16: " + valueString + "</p> <hr>");
 
             // Konfig  Ausgeben
-            valueString = String(sbus_channel_einkanal, DEC);
-            client.println("<br> Konfig SBUS Channel Einkanal: " + valueString); 
-            valueString = String(sbus_channel_einkanal_mode, DEC);
-            client.println("<br> Konfig SBUS Channel Einkanal Mode: " + valueString);
+            valueString = String(SBUS_Channel, DEC);
+            client.println("<br> Konfig SBUS Channel: " + valueString); 
+            valueString = String(RC_System, DEC);
+            client.println("<br> Konfig RC-System: " + valueString);
+            valueString = String(einkanal_mode, DEC);
+            client.println("<br> Konfig Einkanal Mode: " + valueString);
             valueString = String(Ausgang_Kanal[0], DEC);
             client.println("<br> Konfig Ausgang 1: " + valueString);        
             valueString = String(Ausgang_Kanal[1], DEC);
