@@ -253,15 +253,13 @@ void encodeFunction(uint16_t channel) {
     uint8_t sw      = (v >> 1) & 0b111;
     uint8_t state   = v & 0b1;
 
-    if (address == (einkanal_mode - 10))
+    if (address == (einkanal_mode - 10))  // Adresse ?
     {
       bitWrite(Data4, sw, state);
-      Data = Data4;
     }
-    else
-    {
-      Data = 0;
-    }
+
+    Data = Data4;  // Verschiebe zum Output
+
   /* 
   Serial.print("WM: ");
   Serial.print(SBUS_Channel + 1); 
