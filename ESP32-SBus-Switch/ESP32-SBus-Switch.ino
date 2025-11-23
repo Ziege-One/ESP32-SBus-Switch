@@ -33,7 +33,7 @@ Bolder Flight Systems SBUS  8.1.4
 #include <WiFi.h>
 #include <EEPROM.h>
 
-const float Version = 0.5; // Software Version
+const float Version = 0.6; // Software Version
 
 // EEprom
 
@@ -323,14 +323,14 @@ void Output(uint16_t Data) {
     
     if (Ausgang[x]) // Abfrage für Ausgang
       {
-        if (mode[x] > 0) // kein Dauerlicht
+        if ((mode[x] & 0xFF00) > 0) // kein Dauerlicht
         {
           currentTime2 = millis();
-          if (currentTime2 - previousTimeLED[x] >= 8000 / mode[x])
+          if (ledcRead(OutPin[x]) <= 0)  // LED aus
           {
-            previousTimeLED[x] = currentTime2;
-            if (ledcRead(OutPin[x]) <= 0) 
+            if (currentTime2 - previousTimeLED[x] >= 50 * (mode[x] & 0x00FF))
             {
+              previousTimeLED[x] = currentTime2;
               if (pwm_wert[x] >= 300)
               {
                 ledcWrite(OutPin[x], map(sbus_data.ch[pwm_wert[x]-300], 200, 1850, 0, 255));  
@@ -340,8 +340,12 @@ void Output(uint16_t Data) {
                 ledcWrite(OutPin[x], pwm_wert[x]);  
               }  
             }
-            else
+          }  
+          else
+          {
+            if (currentTime2 - previousTimeLED[x] >= 50 * ((mode[x] >> 8) & 0x00FF))
             {
+              previousTimeLED[x] = currentTime2;
               ledcWrite(OutPin[x], 0);      
             }
           }
@@ -492,7 +496,14 @@ void Webpage()
               pos1 = header.indexOf('=');
               pos2 = header.indexOf('&');
               valueString = header.substring(pos1+1, pos2);
-              mode[Menu-1] = (valueString.toInt());
+              mode[Menu-1] = (mode[Menu-1] & 0x00FF) | (valueString.toInt() << 8);
+            }   
+
+            if(header.indexOf("GET /?AusgangKanalMODE2=")>=0) {  // Abfrage Ausgang PWM Einstellung
+              pos1 = header.indexOf('=');
+              pos2 = header.indexOf('&');
+              valueString = header.substring(pos1+1, pos2);
+              mode[Menu-1] = (mode[Menu-1] & 0xFF00) | valueString.toInt();
             }   
 
             if(header.indexOf("GET /?AusgangKanalPWM=")>=0) {  // Abfrage Ausgang PWM Einstellung
@@ -808,19 +819,28 @@ void Webpage()
             //client.println("<br />");
             //client.println("<br />");
             
+            // Funktion Ausgang 1
+
             client.println("<p class=\"text2\" >Funktion Ausgang</p>");
 
             client.println("<p><select id=\"ausgangkanalmode\" class=\"buttonA\" onchange=\"setausgangkanalmode()\">");
             client.println("<optgroup label=\"Funtion\">");
             client.println("<option value=\"0\">Dauerlicht</option>");
-      	    client.println("<option value=\"1\">Blinken 8s</option>");
-            client.println("<option value=\"2\">Blinken 4s</option>");
-            client.println("<option value=\"4\">Blinken 2s</option>");
-            client.println("<option value=\"8\">Blinken 1s</option>");
-            client.println("<option value=\"16\">Blinken 0,5s</option>");
-            client.println("<option value=\"32\">Blinken 0,25s</option>");
-            client.println("<option value=\"64\">Blinken 0,125s</option>");
-            client.println("<option value=\"128\">Blinken 0,0625s</option>");
+            client.println("<option value=\"1\">Blinken 0,05s an</option>");
+            client.println("<option value=\"2\">Blinken 0,1s an</option>");
+            client.println("<option value=\"5\">Blinken 0,25s an</option>");
+            client.println("<option value=\"10\">Blinken 0,5s an</option>");
+            client.println("<option value=\"15\">Blinken 0,75s an</option>");
+            client.println("<option value=\"20\">Blinken 1s an</option>");
+            client.println("<option value=\"40\">Blinken 2s an</option>");
+            client.println("<option value=\"60\">Blinken 3s an</option>");
+            client.println("<option value=\"80\">Blinken 4s an</option>");
+            client.println("<option value=\"100\">Blinken 5s an</option>");
+            client.println("<option value=\"120\">Blinken 6s an</option>");
+            client.println("<option value=\"140\">Blinken 7s an</option>");
+            client.println("<option value=\"160\">Blinken 8 an</option>");
+            client.println("<option value=\"180\">Blinken 9s an</option>");
+            client.println("<option value=\"200\">Blinken 10s an</option>");
             client.println("</optgroup>");
             client.println("</select><br></p>");
             
@@ -832,7 +852,7 @@ void Webpage()
             client.println("xhr.open('GET', \"/?AusgangKanalMODE=\" + val + \"&\", true);");
             client.println("xhr.send(); } </script>");
 
-            valueString = String(mode[Menu-1], DEC);
+            valueString = String((mode[Menu-1] >> 8) & 0xFF, DEC);
 
             client.println("<script> ");
             client.println("var selectedOption =" + valueString + ";");
@@ -842,6 +862,53 @@ void Webpage()
             client.println("if (option.value == selectedOption) {");
             client.println("option.selected = true;");
             client.println("break; }  } </script>"); 
+
+            // Funktion Ausgang 2 nur beim blinken Anzeigen 2te Zeit
+
+            if ((mode[Menu-1] & 0xFF00) > 0)
+            {
+
+            // client.println("<p class=\"text2\" >Zeit aus</p>");
+
+            client.println("<p><select id=\"ausgangkanalmode2\" class=\"buttonA\" onchange=\"setausgangkanalmode2()\">");
+            client.println("<optgroup label=\"Funtion\">");
+            client.println("<option value=\"1\">Blinken 0,05s aus</option>");
+            client.println("<option value=\"2\">Blinken 0,1s aus</option>");
+            client.println("<option value=\"5\">Blinken 0,25s aus</option>");
+            client.println("<option value=\"10\">Blinken 0,5s aus</option>");
+            client.println("<option value=\"15\">Blinken 0,75s aus</option>");
+            client.println("<option value=\"20\">Blinken 1s aus</option>");
+            client.println("<option value=\"40\">Blinken 2s aus</option>");
+            client.println("<option value=\"60\">Blinken 3s aus</option>");
+            client.println("<option value=\"80\">Blinken 4s aus</option>");
+            client.println("<option value=\"100\">Blinken 5s aus</option>");
+            client.println("<option value=\"120\">Blinken 6s aus</option>");
+            client.println("<option value=\"140\">Blinken 7s aus</option>");
+            client.println("<option value=\"160\">Blinken 8 aus</option>");
+            client.println("<option value=\"180\">Blinken 9s aus</option>");
+            client.println("<option value=\"200\">Blinken 10s aus</option>");
+            client.println("</optgroup>");
+            client.println("</select><br></p>");
+            
+            client.println("<script> function setausgangkanalmode2() { ");
+            client.println("var sel = document.getElementById(\"ausgangkanalmode2\");");
+            client.println("var opt = sel.options[sel.selectedIndex];");
+            client.println("var val = opt.value;");
+            client.println("var xhr = new XMLHttpRequest();");
+            client.println("xhr.open('GET', \"/?AusgangKanalMODE2=\" + val + \"&\", true);");
+            client.println("xhr.send(); } </script>");
+
+            valueString = String(mode[Menu-1] & 0xFF, DEC);
+
+            client.println("<script> ");
+            client.println("var selectedOption =" + valueString + ";");
+            client.println("var selectElement = document.getElementById(\"ausgangkanalmode2\");");
+            client.println("for (var i = 0; i < selectElement.options.length; i++) {");
+            client.println("var option = selectElement.options[i];");
+            client.println("if (option.value == selectedOption) {");
+            client.println("option.selected = true;");
+            client.println("break; }  } </script>");
+            }
 
             client.println("<p class=\"text2\" >PWM Ausgang</p>");
 
